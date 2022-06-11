@@ -23,12 +23,14 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, log, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue
+    env, log, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue, assert_one_yocto
 };
+// use std::convert::{TryFrom};
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
+    owner: AccountId,
     token: FungibleToken,
     metadata: LazyOption<FungibleTokenMetadata>,
 }
@@ -67,6 +69,7 @@ impl Contract {
         assert!(!env::state_exists(), "Already initialized");
         metadata.assert_valid();
         let mut this = Self {
+            owner: owner_id.clone(),
             token: FungibleToken::new(b"a".to_vec()),
             metadata: LazyOption::new(b"m".to_vec(), Some(&metadata)),
         };
@@ -79,6 +82,28 @@ impl Contract {
         }
         .emit();
         this
+    }
+
+    pub fn is_registered(&self, account_id: &AccountId) -> bool {
+        if self.token.accounts.contains_key(account_id) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    #[payable]
+    pub fn register_account(&mut self, account_id: &AccountId) {
+        assert_one_yocto();
+
+        // let sender = env::predecessor_account_id();
+        // let owner = AccountId::try_from("savingprotocol.testnet".to_string()).unwrap();
+        // if sender != owner {
+        //     env::log_str(&sender.to_string());
+        // }
+
+        self.token.internal_register_account(account_id);
     }
 
     fn on_account_closed(&mut self, account_id: AccountId, balance: Balance) {
